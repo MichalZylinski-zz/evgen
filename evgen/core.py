@@ -83,6 +83,8 @@ class SessionTemplate:
         delay = 0
         session_events = []
         self.__formatted_events__ = []
+        #retrieving all static and dynamic user properties - they may change between sessions (i.e. IP)
+        user_properties = self.__user__.Properties
         for eg in self.__events__:
             for i in range(randrange(eg.min_repeat, eg.max_repeat+1)):
                 for e in eg.events:
@@ -90,7 +92,7 @@ class SessionTemplate:
                         e[0].TimeStamp = self.start_date+dt.timedelta(milliseconds=delay)
                         e[0].SessionId = self._sid_
                         #updating dictionary with UserProfile properties
-                        e[0].__dict__.update(self.__user__.Properties)
+                        e[0].__dict__.update(user_properties)
                         self.__formatted_events__.append(copy(e[0]))
                         if e[3]: #including random delay
                             i = randrange(-(e[2]*e[3]), (e[2]*e[3]))

@@ -60,8 +60,8 @@ class MoneyTransferEventTemplate(GenericEventTemplate):
         self.Value = round(randrange(self.__min__, self.__max__), 2)
 
 #Defining event writers and formats
-generic_conn = ConsoleWriter(format=CSVEventFormat(fields=["TimeStamp", "IP", "UserName", "SessionId", "Name"], quote="\""))
-money_transfer_conn = ConsoleWriter(format=CSVEventFormat(fields=["TimeStamp", "UserName", "SessionId", "Name","FromIBAN", "ToIBAN", "Value"]))
+generic_conn = ConsoleWriter(format=CSVEventFormat(fields=["TimeStamp", "IP", "UserName", "SessionId", "Name"]))
+money_transfer_conn = ConsoleWriter(format=CSVEventFormat(fields=["TimeStamp", "IP", "UserName", "SessionId", "Name","FromIBAN", "ToIBAN", "Value"]))
 
 #Defining basic events
 signin_event = GenericEventTemplate(name="Signin")

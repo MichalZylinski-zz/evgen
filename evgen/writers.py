@@ -1,7 +1,6 @@
 import abc
 from evgen.events import CSVEventFormat
-import os
-from azure.servicebus import EventHub, ServiceBusService
+import os, time
 
 class GenericWriter(object):
     __metaclass__ = abc.ABCMeta
@@ -32,6 +31,7 @@ class EventHubWriter(GenericWriter):
     EventHubWriter sends all the events to Microsoft Azure Event Hub Service.
     """
     def __init__(self, eh_name, connection_string, format=None):
+        from azure.servicebus import EventHub, ServiceBusService
         """
         eh_name - Event Hub service name
         connection_string - Event Hub namespace connection string
@@ -48,7 +48,12 @@ class EventHubWriter(GenericWriter):
         try:
             self.__sbs__.send_event(self.__ehname__, self.Format.format(event))
         except:
-            raise IOError("Cannot send message to Event Hub service")
+            #adding small delay in case the there is temporary connection issue with Event Hub
+            time.sleep(1)
+            try:
+                self.__sbs__.send_event(self.__ehname__, self.Format.format(event))
+            except:
+                raise IOError("Cannot send message to Event Hub service")
         
 
 class DirectoryWriter(GenericWriter):
