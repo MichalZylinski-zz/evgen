@@ -25,6 +25,7 @@ class FileWriter(GenericWriter):
         v = self.Format.format(event)
         if v[-1] != "\n":
             v += "\n"
+        v = v.encode('utf-8')
         self.__output__.write(v)
 
 class EventHubWriter(GenericWriter):
