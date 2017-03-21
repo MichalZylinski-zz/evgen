@@ -1,3 +1,6 @@
+#!/usr/bin/env python
+
+from __future__ import print_function
 from evgen.core import GenericEventTemplate, SessionTemplate
 from evgen.writers import GenericWriter
 from evgen.events import CSVEventFormat, JSONEventFormat
@@ -6,11 +9,11 @@ from evgen.events import CSVEventFormat, JSONEventFormat
 
 class CustomWriter1(GenericWriter):
     def send(self, event):
-        print "JSON:", self.Format.format(event)
+        print("JSON:", self.Format.format(event))
     
 class CustomWriter2(GenericWriter):
     def send(self, event):
-        print "CSV:",self.Format.format(event)
+        print("CSV:",self.Format.format(event))
 
 session = SessionTemplate()
 csv_format = CSVEventFormat()

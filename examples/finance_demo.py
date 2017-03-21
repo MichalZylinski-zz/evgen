@@ -1,3 +1,6 @@
+#!/usr/bin/env python
+
+from builtins import str
 from evgen.core import SessionTemplate,  HourlyDistribution, WeeklyDistribution, MonthlyDistribution, UserTemplate, RemoteUserProfile
 from evgen.writers import ConsoleWriter
 from evgen.events import GenericEventTemplate, EventGroup, CSVEventFormat

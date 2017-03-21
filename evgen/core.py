@@ -1,3 +1,7 @@
+from __future__ import division
+from builtins import range
+from past.utils import old_div
+from builtins import object
 import datetime as dt
 from random import randrange, random, choice, randint
 import uuid
@@ -16,7 +20,7 @@ def random_test(probability):
     else:
         return False
 
-class SessionTemplate:
+class SessionTemplate(object):
     def __init__(self, event_delay=1000, start_date=None, session_id=None, generate_session_id=True,  session_delay=1000, session_random=0):
         self.__user__ = UserProfile()
         self.__events__ = []
@@ -105,15 +109,16 @@ class SessionTemplate:
 
         #calculating next session delay
         if self.__sdr__:
-            sdelay = randrange(-self.__session_delay__.total_seconds()*self.__sdr__, self.__session_delay__.total_seconds()*self.__sdr__)
+            delay = self.__session_delay__.total_seconds()*1000
+            sdelay = randrange(-delay*self.__sdr__, delay*self.__sdr__)
         else:
             sdelay = 0
-        sdelay = self.__session_delay__.total_seconds()+sdelay
-        self.last_session_end = self.last_session_end + dt.timedelta(seconds=sdelay)
+        sdelay = dt.timedelta(milliseconds=self.__session_delay__.total_seconds()*1000+sdelay)
+        self.last_session_end = self.last_session_end + sdelay
         self.start_date = self.last_session_end
         return self.start_date #returns next possible start date 
 
-class UserTemplate:
+class UserTemplate(object):
     def __init__(self, user_profile, number_of_sessions, randomize_sessions=True, start_date=None, end_date=None):
         #uniform distributions by default
         self.h_dist = HourlyDistribution()
@@ -159,7 +164,7 @@ class UserTemplate:
 
     def __generate_random_date__(self):
         date_range = self.end_date-self.start_date
-        years = range(self.start_date.year, self.end_date.year+1)
+        years = list(range(self.start_date.year, self.end_date.year+1))
         while 1: #testing whether random date fits between start and end dates
             year = np.random.choice(years)
             if len(years) > 2:
@@ -220,12 +225,12 @@ class Distribution(object):
         if elements is None and sample_size is None:
             raise ValueError('either elements or sample_size parameter is required')
         if elements is None:
-            self.__elements__ = range(0,sample_size)
+            self.__elements__ = list(range(0,sample_size))
         else:
             self.__elements__ = elements
         if weights is None:
 
-            self.__weights__ = [1.0/len(self.__elements__)]*len(self.__elements__)
+            self.__weights__ = [old_div(1.0,len(self.__elements__))]*len(self.__elements__)
         else:
             self.__weights__ = weights
         
@@ -240,13 +245,13 @@ class Distribution(object):
         if ends is None: ends == len(self.__elements__)
         sprob = sum(self.__weights__[starts:ends])
         elements = self.__elements__[starts:ends]
-        weights = [w/sprob for w in self.__weights__[starts:ends]]
+        weights = [old_div(w,sprob) for w in self.__weights__[starts:ends]]
         return np.random.choice(elements, size=1, p=weights)[0]
 
 
 class WeeklyDistribution(Distribution):
     def __init__(self, weights=None):
-        super(WeeklyDistribution, self).__init__(elements=range(0,7), weights=weights)
+        super(WeeklyDistribution, self).__init__(elements=list(range(0,7)), weights=weights)
 
     def get_value(self, year, month):
         day_of_week = np.random.choice(self.__elements__, size=1, p=self.__weights__)[0]
@@ -257,11 +262,11 @@ class WeeklyDistribution(Distribution):
 
 class HourlyDistribution(Distribution):
     def __init__(self, weights=None):
-        super(HourlyDistribution, self).__init__(elements=range(0,24), weights=weights)
+        super(HourlyDistribution, self).__init__(elements=list(range(0,24)), weights=weights)
 
 class MonthlyDistribution(Distribution):
     def __init__(self, weights=None):
-        super(MonthlyDistribution, self).__init__(elements=range(1,13), weights=weights)
+        super(MonthlyDistribution, self).__init__(elements=list(range(1,13)), weights=weights)
             
 
 class UserProfile(object):

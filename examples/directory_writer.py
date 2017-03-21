@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 from evgen.core import UserProfile, UserTemplate, SessionTemplate
 from evgen.events import GenericEventTemplate, EventGroup
 from evgen.writers import DirectoryWriter

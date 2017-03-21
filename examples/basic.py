@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 from evgen.core import GenericEventTemplate, SessionTemplate
 from evgen.writers import ConsoleWriter
 

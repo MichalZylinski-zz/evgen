@@ -1,8 +1,11 @@
+from builtins import map
+from builtins import str
+from builtins import object
 import abc
 import json
+from future.utils import with_metaclass
 
-class GenericEventFormat(object):
-    __metaclass__ = abc.ABCMeta
+class GenericEventFormat(with_metaclass(abc.ABCMeta, object)):
     def __init__(self, fields=None):
         self.Fields = fields
 
@@ -18,9 +21,9 @@ class CSVEventFormat(GenericEventFormat):
 
     def format(self, attrs):
         if self.Fields:
-            v = map(str, [attrs[f] for f in self.Fields])
+            v = list(map(str, [attrs[f] for f in self.Fields]))
         else:
-            v = map(str, attrs.values())
+            v = list(map(str, list(attrs.values())))
         if self.Quote:
             v = [self.Quote+i.replace(self.Quote, "\\"+self.Quote)+self.Quote for i in v]
         return self.Separator.join(v)
@@ -63,7 +66,7 @@ class GenericEventTemplate(object):
             c.send(attrs)
 
 
-class EventGroup:
+class EventGroup(object):
     def __init__(self):
         self.events = []
         self.min_repeat = 1

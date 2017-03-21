@@ -1,10 +1,11 @@
+from __future__ import print_function
+from builtins import object
 import abc
 from evgen.events import CSVEventFormat
 import os, time
+from future.utils import with_metaclass
 
-class GenericWriter(object):
-    __metaclass__ = abc.ABCMeta
-
+class GenericWriter(with_metaclass(abc.ABCMeta, object)):
     def __init__(self, format=None):
         if format is None:
             format = CSVEventFormat()
@@ -81,5 +82,5 @@ class DirectoryWriter(GenericWriter):
 
 class ConsoleWriter(GenericWriter):
     def send(self, event):
-        print self.Format.format(event)
+        print(self.Format.format(event))
 
