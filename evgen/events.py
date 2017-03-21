@@ -1,4 +1,3 @@
-from builtins import map
 from builtins import str
 from builtins import object
 import abc
@@ -21,9 +20,9 @@ class CSVEventFormat(GenericEventFormat):
 
     def format(self, attrs):
         if self.Fields:
-            v = list(map(str, [attrs[f] for f in self.Fields]))
+            v = [str(attrs[f], encode='utf-8') for f in self.Fields]
         else:
-            v = list(map(str, list(attrs.values())))
+            v = [str(a, encode='utf-8') for a in attrs.values()]
         if self.Quote:
             v = [self.Quote+i.replace(self.Quote, "\\"+self.Quote)+self.Quote for i in v]
         return self.Separator.join(v)
