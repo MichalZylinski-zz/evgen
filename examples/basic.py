@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from evgen.core import GenericEventTemplate, SessionTemplate
+from evgen.core import SessionTemplate, GenericEventTemplate
 from evgen.writers import ConsoleWriter
 
 #basic 2-event example

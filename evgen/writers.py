@@ -1,7 +1,7 @@
 from __future__ import print_function
 from builtins import object
 import abc
-from evgen.events import CSVEventFormat
+from evgen.formats import CSVEventFormat
 import os, time
 from future.utils import with_metaclass
 
@@ -33,7 +33,7 @@ class EventHubWriter(GenericWriter):
     EventHubWriter sends all the events to Microsoft Azure Event Hub Service.
     """
     def __init__(self, eh_name, connection_string, format=None):
-        from azure.servicebus import EventHub, ServiceBusService
+        from azure.servicebus import ServiceBusService
         """
         eh_name - Event Hub service name
         connection_string - Event Hub namespace connection string
@@ -57,6 +57,18 @@ class EventHubWriter(GenericWriter):
             except:
                 raise IOError("Cannot send message to Event Hub service")
         
+class RabbitMQWriter(GenericWriter):
+    def __init__(self, connection_string, queue, format=None):
+        import pika
+        super(RabbitMQWriter, self).__init__(format=format)
+        self.__conn__ = pika.BlockingConnection(pika.URLParameters(connection_string))
+        self.__queue_name__ = queue
+        self.__channel__ = self.__conn__.channel()
+        self.__channel__.queue_declare(queue=self.__queue_name__)
+
+    def send(self, event):
+        formatted_event = self.Format.format(event)
+        self.__channel__.basic_publish(exchange="", routing_key=self.__queue_name__, body=formatted_event)
 
 class DirectoryWriter(GenericWriter):
     """

@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 
 from __future__ import print_function
-from evgen.core import GenericEventTemplate, SessionTemplate
+from evgen.core import SessionTemplate, GenericEventTemplate
 from evgen.writers import GenericWriter
-from evgen.events import CSVEventFormat, JSONEventFormat
+from evgen.formats import CSVEventFormat, JSONEventFormat
 
 # same events will be sent to different sinks using different formats
 

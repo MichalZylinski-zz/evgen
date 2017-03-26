@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
-from evgen.core import UserProfile, UserTemplate, SessionTemplate
-from evgen.events import GenericEventTemplate, EventGroup
+from evgen.core import SessionOwnerTemplate, SessionTemplate, GenericEventTemplate, EventGroup
 from evgen.writers import DirectoryWriter
 
 #if directory below doesn't exist it will be created
@@ -13,18 +12,17 @@ eg.set_repeat_policy(min=20, max=20)
 session = SessionTemplate()
 session.add_event_group(eg)
 
-#following 2 lines should generate 2 separate files
-session.generate()
-session.generate()
 
-#following profile should generate 10 separate files
-user_profile = UserProfile("michal")
+#following profile should generate 10 separate files in /output directory
 
 import datetime 
 
 start = datetime.datetime.strptime("2015-01-01 10:00:00", "%Y-%m-%d %H:%M:%S")
 end = datetime.datetime.strptime("2015-10-31 23:59:00", "%Y-%m-%d %H:%M:%S")
 
-user = UserTemplate(user_profile, number_of_sessions=10, start_date=start, end_date=end)
+user = SessionOwnerTemplate("michalz")
+user.set_number_of_sessions(10)
+user.set_start_date(start)
+user.set_end_date(end)
 user.add_session(session)
-user.generate(sorted=False)
+user.generate()

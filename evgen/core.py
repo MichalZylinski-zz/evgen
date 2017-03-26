@@ -1,39 +1,112 @@
 from __future__ import division
 from builtins import range
-from past.utils import old_div
 from builtins import object
 import datetime as dt
-from random import randrange, random, choice, randint
 import uuid
-from collections import OrderedDict
-import numpy as np
-import calendar
-import abc
-from evgen.events import EventGroup, GenericEventTemplate
+from random import randrange, random, randint
 from copy import copy
 import user_agent
 from faker import Faker
+import types
+from evgen.utils import *
 
-def random_test(probability):
-    if random() < probability:
-        return True
-    else:
-        return False
+faker = Faker()
 
-class SessionTemplate(object):
-    def __init__(self, event_delay=1000, start_date=None, session_id=None, generate_session_id=True,  session_delay=1000, session_random=0):
-        self.__user__ = UserProfile()
-        self.__events__ = []
+class BaseTemplate(object):
+    """
+    BaseTemplate exposes static and dynamic properties through Attributes dictionary
+    """
+    def __init__(self):
+        self.__attributes__ = {}
+
+    def __getattr__(self, val):
+        if val=="Attributes":
+            attrs = {}
+            #materializing dynamic properties and adding them to main dictionary
+            for attr in self.__attributes__:
+                if type(self.__attributes__[attr]) == types.NoneType: #skipping all attributes that are empty 
+                        pass
+                elif type(self.__attributes__[attr]) in [types.MethodType, types.FunctionType]:
+                    try:
+                        attrs[attr] = self.__attributes__[attr]()
+                    except: #in case function relies on external object that has not been initialized yet
+                        pass
+                else:
+                    attrs[attr] = self.__attributes__[attr]
+            return attrs
+        elif val in self.__attributes__: 
+            if type(self.__attributes__[val]) in [types.MethodType, types.FunctionType]:
+                return self.__attributes__[val]()
+            else:
+                return self.__attributes__[val]
+        else:
+            return object.__getattribute__(self, val)
+            raise AttributeError("Property: %s does not exist" % val)
+
+    def set_attribute(self, key, value):
+        """
+        Creates new static or dynamic attribute.
+        """
+        self.__attributes__[key] = value
+
+    def update_attributes(self, dict):
+        self.__attributes__.update(dict)
+
+class GenericEventTemplate(BaseTemplate):
+    def __init__(self, name=None, writer=None, **kwargs):
+        BaseTemplate.__init__(self)
+        self.set_attribute('Name',name)
+        self.Name = name
+        self.Session = None
+        self.Owner = None
+        self.update_attributes(kwargs)
+        self.__writers__ = []
+        if writer != None:
+            self.add_writer(writer)
+
+    def add_writer(self, writer,  replace=False):
+        if replace:
+            self.__writers__ = []
+        if writer not in self.__writers__:
+            self.__writers__.append(writer)
+
+    def add_owner(self, owner):
+        self.Owner = owner
+
+    def add_session(self, session):
+        self.Session = session
+        self.update_attributes(session.Attributes)
+
+    def generate(self):
+        if len(self.__writers__) == 0:
+            raise ValueError("Writer property missing.")
+        for writer in self.__writers__:
+            writer.send(self.Attributes)
+
+class EventGroup(object):
+    def __init__(self):
+        self.Events = []
+        self.min_repeat = 1
+        self.max_repeat  = 1
+
+    def add_event(self, event, probability, delay=1000, delay_random=0.1):
+        self.Events.append((event, probability, delay, delay_random))
+
+    def set_repeat_policy(self, min=1, max=1):
+        self.min_repeat = min
+        self.max_repeat = max
+
+class SessionTemplate(BaseTemplate):
+    def __init__(self, event_delay=1000, start_date=None,  session_delay=1000, session_random=0):
+        BaseTemplate.__init__(self)
+        self.Owner = None
+        self.EventGroups = []
         self.__event_delay__ = event_delay
         self.__session_delay__ = dt.timedelta(milliseconds=session_delay)
         self.__sdr__ = session_random
-        self.__generate_sid__ = generate_session_id
         self.__writers__ = []
-        if session_id:
-            self._sid_ = session_id
-        else:
-            self._sid_ = uuid.uuid4().hex
-        if start_date is None: start_date = dt.datetime.strptime("2016-01-01 01:00:00", "%Y-%m-%d %H:%M:%S")
+        if start_date is None: 
+            start_date = dt.datetime.now()
         self.start_date = start_date
         self.last_session_end = self.start_date    
 
@@ -48,64 +121,55 @@ class SessionTemplate(object):
             delay = self.__event_delay__
         #wrapping event onto single, basic EventGroup instance
         eg = EventGroup()
-        eg.add_event(event, probability, delay,delay_random)
-        self.__events__.append(eg)
+        eg.add_event(copy(event), probability, delay,delay_random)
+        self.EventGroups.append(eg)
     
     def add_event_group(self, event_group):
-        self.__events__.append(event_group)
+        self.EventGroups.append(event_group)
 
-    def add_user(self, user_profile):
-        self.__user__ = user_profile
+    def add_owner(self, owner_template):
+        self.Owner = owner_template
 
-    def __generate_session_id__(self):
-        self._sid_ = uuid.uuid4().hex
-
-    def display(self):
-        """
-        Sends recently generated event session to all registered sinks.
-        """
-        for e in self.__formatted_events__:
-            e.generate()
-
-    def get(self):
-        """
-        Returns recently generated event session as list of formatted events
-        """
-        return self.__formatted_events__
-     
     def add_writer(self, writer):
-        for eg in self.__events__:
-            for e in eg.events:
-                e[0].add_writer(writer)
+        self.__writers__.append(writer)
+     
+    def generate(self, start_date=None):
+        self.set_attribute("SessionId",  uuid.uuid4().hex)
+        #initialize writers
+        for eg in self.EventGroups:
+            for e in eg.Events:
+                e[0].add_session(self)
+                for w in self.__writers__:
+                    e[0].add_writer(w)
 
-
-    def generate(self, start_date=None, display=True):
-        if self.__generate_sid__:
-            self.__generate_session_id__()
         if start_date:
             self.set_start_date(start_date)
+
         delay = 0
         session_events = []
-        self.__formatted_events__ = []
+
+        #owner attributes should remain the same for whole session:
+        if self.Owner: 
+            owner_attrs = self.Owner.Attributes
+
         #retrieving all static and dynamic user properties - they may change between sessions (i.e. IP)
-        user_properties = self.__user__.Properties
-        for eg in self.__events__:
+        for eg in self.EventGroups:
             for i in range(randrange(eg.min_repeat, eg.max_repeat+1)):
-                for e in eg.events:
+                for e in eg.Events:
                     if random_test(e[1]):
-                        e[0].TimeStamp = self.start_date+dt.timedelta(milliseconds=delay)
-                        e[0].SessionId = self._sid_
+                        timestamp = self.start_date+dt.timedelta(milliseconds=delay)
+                        e[0].set_attribute("TimeStamp", timestamp)
                         #updating dictionary with UserProfile properties
-                        e[0].__dict__.update(user_properties)
-                        self.__formatted_events__.append(copy(e[0]))
+                        if self.Owner:
+                            e[0].update_attributes(owner_attrs)
+                            e[0].add_owner(self.Owner)
+                        e[0].generate()
                         if e[3]: #including random delay
                             i = randrange(-(e[2]*e[3]), (e[2]*e[3]))
                             delay += e[2]+i
                         else: 
                             delay += e[2]
                         self.last_session_end = e[0].TimeStamp
-        if display:
-            self.display()
 
         #calculating next session delay
         if self.__sdr__:
@@ -118,23 +182,25 @@ class SessionTemplate(object):
         self.start_date = self.last_session_end
         return self.start_date #returns next possible start date 
 
-class UserTemplate(object):
-    def __init__(self, user_profile, number_of_sessions, randomize_sessions=True, start_date=None, end_date=None):
+class SessionOwnerTemplate(BaseTemplate):
+    def __init__(self, name=None):
+        BaseTemplate.__init__(self)
+        self.set_attribute('UserName', name)
         #uniform distributions by default
         self.h_dist = HourlyDistribution()
         self.m_dist = MonthlyDistribution()
         self.d_dist = WeeklyDistribution()
         self.sessions = []
-        self.randomize_sessions = randomize_sessions
+        self.randomize_sessions = False
         self.s_dist = None #session distribution
-        self.__user__ = user_profile
-        self.__nos__ = number_of_sessions
-        if start_date is None: start_date = dt.datetime.now()
-        self.start_date = start_date
-        if end_date is None: end_date = self.start_date + dt.timedelta(days=30)
-        self.end_date = end_date
+        self.__nos__ = 0
+        self.start_date = dt.datetime.now()
+        self.end_date = self.start_date + dt.timedelta(days=30)
         self.session_dates = []
 
+    def set_number_of_sessions(self, number_of_sessions, randomize=False):
+        self.__nos__ = number_of_sessions
+        self.randomize_sessions = randomize
     
     def set_start_date(self, date):
         """
@@ -155,8 +221,7 @@ class UserTemplate(object):
         self.m_dist = distribution
 
     def add_session(self, session, delay=None):
-        if self.__user__:
-            session.add_user(self.__user__)
+        session.add_owner(self)
         self.sessions.append(session)
 
     def add_session_distribution(self, weights):
@@ -180,8 +245,7 @@ class UserTemplate(object):
                 break
         return new_date
 
-    def generate(self, sorted=False, display=True):
-        formatted_sessions = [] #used to sort sessions after generation
+    def generate(self):
         session_count = 0
         if self.s_dist is None:
             self.s_dist = Distribution(sample_size=len(self.sessions))
@@ -190,25 +254,14 @@ class UserTemplate(object):
             if self.randomize_sessions:
                 begin = self.__generate_random_date__()
             session = self.sessions[self.s_dist.get_value()]
-            session.generate(start_date=begin, display=False)
+            session.generate(start_date=begin)
             end = session.last_session_end 
             if self.randomize_sessions:                     
                 if not self.__test_date_intersect__(begin, end) and end < self.end_date:
-                    if sorted:
-                        formatted_sessions.append((begin,session.get()))
-                    else: 
-                        session.display()
                     self.session_dates.append((begin,end))
-                    session_count += 1
             else:
                 begin = end
-                session.display()
-                session_count += 1
-        if sorted:        
-            formatted_sessions.sort()
-            for s in formatted_sessions:
-                for l in s[1]:
-                    l.generate()
+            session_count += 1
 
     def __test_date_intersect__(self, begin, end):
         """
@@ -219,90 +272,11 @@ class UserTemplate(object):
                 return True
         return False
 
-
-class Distribution(object):
-    def __init__(self, elements=None, sample_size=None, weights=None):
-        if elements is None and sample_size is None:
-            raise ValueError('either elements or sample_size parameter is required')
-        if elements is None:
-            self.__elements__ = list(range(0,sample_size))
-        else:
-            self.__elements__ = elements
-        if weights is None:
-
-            self.__weights__ = [old_div(1.0,len(self.__elements__))]*len(self.__elements__)
-        else:
-            self.__weights__ = weights
-        
-    def get_value(self, starts=None, ends=None):
-        """
-        Generates random value based on provided elements and weights (probability distribution).
-        Supports also subset of all elements.
-        starts - beginning of subset
-        ends = end of subset
-        """
-        if starts is None: starts== 0
-        if ends is None: ends == len(self.__elements__)
-        sprob = sum(self.__weights__[starts:ends])
-        elements = self.__elements__[starts:ends]
-        weights = [old_div(w,sprob) for w in self.__weights__[starts:ends]]
-        return np.random.choice(elements, size=1, p=weights)[0]
-
-
-class WeeklyDistribution(Distribution):
-    def __init__(self, weights=None):
-        super(WeeklyDistribution, self).__init__(elements=list(range(0,7)), weights=weights)
-
-    def get_value(self, year, month):
-        day_of_week = np.random.choice(self.__elements__, size=1, p=self.__weights__)[0]
-        #turning day_of_week into absolute day number
-        mcal = calendar.Calendar(0).monthdayscalendar(year, month)
-        day = np.random.choice([i[day_of_week] for i in mcal if i[day_of_week] != 0], size=1)[0]
-        return day
-
-class HourlyDistribution(Distribution):
-    def __init__(self, weights=None):
-        super(HourlyDistribution, self).__init__(elements=list(range(0,24)), weights=weights)
-
-class MonthlyDistribution(Distribution):
-    def __init__(self, weights=None):
-        super(MonthlyDistribution, self).__init__(elements=list(range(1,13)), weights=weights)
-            
-
-class UserProfile(object):
-    def __init__(self, name=None):
-        super(UserProfile, self).__setattr__('__static_properties__', {})
-        super(UserProfile, self).__setattr__('__dynamic_properties__', {})
-        self.set_property('UserName', name)
-
-    def __getattr__(self, val):
-        if val=="Properties":
-            props = self.__static_properties__
-            #materializing dynamic properties and adding them to main dictionary
-            props.update({k : self.__dynamic_properties__[k]() for k in self.__dynamic_properties__})
-            return props
-        elif val in self.__static_properties__: 
-            return self.__static_properties__.get(val)
-        elif val in self.__dynamic_properties__:
-            return self.__dynamic_properties__.get(val)()
-        else:
-            raise AttributeError("Property: %s does not exist" % val)
-            #return super(UserProfile, self).__properties__.get(val)
-
-    def set_property(self, key, value):
-        self.__static_properties__[key] = value
-
-    def get_property(self, key):
-        self. __static_properties__.get(key)
-
-    def set_dynamic_property(self, key, method):
-        self.__dynamic_properties__[key] = method
-
-class RemoteUserProfile(UserProfile):
+class RemoteSessionOwnerTemplate(SessionOwnerTemplate):
     def __init__(self, name, ip_range = None, ua_range = None):
-        super(RemoteUserProfile, self).__init__(name)
-        self.set_dynamic_property('IP', self.get_ip)
-        self.set_dynamic_property('UserAgent', self.get_ua)
+        SessionOwnerTemplate.__init__(self, name)
+        self.set_attribute('IP', self.get_ip)
+        self.set_attribute('UserAgent', self.get_ua)
         self.__ip_range__ = ip_range
         self.__ua_range__ = ua_range
 
@@ -310,7 +284,7 @@ class RemoteUserProfile(UserProfile):
         if self.__ip_range__:
             return np.random.choice(self.__ip_range__)
         else:
-            return Faker().ipv4(network=False)
+            return faker.ipv4(network=False)
 
     def get_ua(self):
         if self.__ua_range__:
