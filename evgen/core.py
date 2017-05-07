@@ -9,6 +9,7 @@ import user_agent
 from faker import Faker
 import types
 from evgen.utils import *
+import time
 
 faker = Faker()
 
@@ -133,7 +134,7 @@ class SessionTemplate(BaseTemplate):
     def add_writer(self, writer):
         self.__writers__.append(writer)
      
-    def generate(self, start_date=None):
+    def generate(self, start_date=None, real_time=False):
         self.set_attribute("SessionId",  uuid.uuid4().hex)
         #initialize writers
         for eg in self.EventGroups:
@@ -170,6 +171,8 @@ class SessionTemplate(BaseTemplate):
                         else: 
                             delay += e[2]
                         self.last_session_end = e[0].TimeStamp
+                        if real_time:
+                            time.sleep((e[2]+i)/1000)
 
         #calculating next session delay
         if self.__sdr__:
