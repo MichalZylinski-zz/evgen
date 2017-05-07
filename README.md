@@ -55,6 +55,6 @@ Here's the final output (notice 5 sec delay between the events):
 ### Next steps
 
 * High-level architecture and building blocks description
-* More cool examples
+* [More cool examples](https://github.com/MichalZylinski/evgen/blob/master/docs/examples.md)
 
 
